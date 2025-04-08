@@ -1,0 +1,11 @@
+{
+    "display_name": "Screamer Extension",
+    "loading_order": 100,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "",
+    "author": "",
+    "version": "6.6.6",
+    "homePage": ""
+}
