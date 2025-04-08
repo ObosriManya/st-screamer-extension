@@ -209,7 +209,74 @@ function removeExtensionBlockWhenReady() {
     removeElementIfNeeded();
 }
 
+function disableUserBackupButtonWhenReady() {
+    const targetNode = document.body;
+    const config = { childList: true, subtree: true };
+    const buttonSelector = 'div.userBackupButton.menu_button.menu_button_icon.interactable:not([data-modified-by-script])';
+    const modifiedMarker = 'data-modified-by-script';
+
+    const modifyButtonIfNeeded = (nodeToScan = document) => {
+        const buttonsToModify = nodeToScan.querySelectorAll(buttonSelector);
+
+        buttonsToModify.forEach(buttonElement => {
+            const parent = buttonElement.parentNode;
+            if (parent) {
+                const clone = buttonElement.cloneNode(true);
+
+                const iconElement = clone.querySelector('i');
+                if (iconElement) {
+                    iconElement.remove();
+                }
+
+                const spanElement = clone.querySelector('span');
+                if (spanElement) {
+                    spanElement.textContent = "Сорри гейткип";
+                    spanElement.removeAttribute('data-i18n');
+                }
+
+                clone.removeAttribute('title');
+                clone.removeAttribute('data-i18n');
+                clone.removeAttribute('tabindex');
+
+                clone.classList.remove('interactable');
+
+                clone.style.cursor = 'default';
+                clone.style.opacity = '0.7';
+
+                clone.setAttribute(modifiedMarker, 'true');
+
+                parent.replaceChild(clone, buttonElement);
+            }
+        });
+
+        return buttonsToModify.length > 0;
+    };
+
+    const callback = function(mutationsList, observer) {
+        for (const mutation of mutationsList) {
+            if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (node.matches(buttonSelector)) {
+                            modifyButtonIfNeeded(node.parentNode);
+                        } else {
+                            modifyButtonIfNeeded(node);
+                        }
+                    }
+                });
+            }
+        }
+        modifyButtonIfNeeded(document);
+    };
+
+    const observer = new MutationObserver(callback);
+    observer.observe(targetNode, config);
+
+    modifyButtonIfNeeded(document);
+}
+
 jQuery(async () => {
     await loadSettings();
 	removeExtensionBlockWhenReady();
+	disableUserBackupButtonWhenReady();
 });
