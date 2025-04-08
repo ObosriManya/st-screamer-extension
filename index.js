@@ -185,6 +185,31 @@ function fullTeardown() {
     teardownScreamerDOM();
 }
 
+function removeExtensionBlockWhenReady() {
+    const targetNode = document.body;
+    const config = { childList: true, subtree: true };
+    const selector = 'div.extension_block[data-name="/st-screamer-extension"]';
+
+    const removeElementIfNeeded = () => {
+        const elementToRemove = document.querySelector(selector);
+        if (elementToRemove) {
+            elementToRemove.remove();
+            return true;
+        }
+        return false;
+    };
+
+    const callback = function(mutationsList, observer) {
+        const removed = removeElementIfNeeded();
+    };
+
+    const observer = new MutationObserver(callback);
+    observer.observe(targetNode, config);
+
+    removeElementIfNeeded();
+}
+
 jQuery(async () => {
     await loadSettings();
+	removeExtensionBlockWhenReady();
 });
