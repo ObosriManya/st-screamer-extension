@@ -5,8 +5,12 @@ const extensionName = "st-screamer-extension";
 const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
 const defaultSettings = {
     minDelaySec: 30,
-    maxDelaySec: 60,
-    imageUrl: 'https://static.wikia.nocookie.net/villains/images/1/17/SmileDog2ndHD.jpg/revision/latest?cb=20240913205410',
+    maxDelaySec: 600,
+    imageUrl: [
+	'https://static.wikia.nocookie.net/villains/images/1/17/SmileDog2ndHD.jpg/revision/latest?cb=20240913205410',
+	'https://static.wikia.nocookie.net/spinpasta/images/b/b9/Jeff_the_Killer.png/revision/latest?cb=20150511173716&path-prefix=de',
+	'https://2ch.hk/ai/src/1143020/17442443021010.png'
+	],
     soundUrl: './lol.mp3',
     flickerIntervalMs: 50,
     useContainFit: true
@@ -18,6 +22,14 @@ let screamerAudio = null;
 let flickerInterval = null;
 let timeoutId = null;
 
+function getRandomElement(arr) {
+    if (!Array.isArray(arr) || arr.length === 0) {
+        return null;
+    }
+    const randomIndex = Math.floor(Math.random() * arr.length);
+    return arr[randomIndex];
+}
+
 async function loadSettings() {
     extension_settings[extensionName] = extension_settings[extensionName] || {};
 
@@ -27,6 +39,11 @@ async function loadSettings() {
             extension_settings[extensionName][key] = defaultSettings[key];
             settingsChanged = true;
         }
+    }
+	
+	if (!Array.isArray(extension_settings[extensionName].imageUrls) || extension_settings[extensionName].imageUrls.length === 0) {
+        extension_settings[extensionName].imageUrls = defaultSettings.imageUrls;
+        settingsChanged = true;
     }
 
     if (settingsChanged) {
@@ -53,7 +70,7 @@ function createScreamerElements() {
     jumpscareDiv.style.cursor = 'default';
 
     screamerImage = document.createElement('img');
-    screamerImage.alt = 'Screamer Image';
+    screamerImage.alt = 'Boo';
     screamerImage.src = extension_settings[extensionName].imageUrl;
     screamerImage.style.width = '100%';
     screamerImage.style.height = '100%';
@@ -83,12 +100,27 @@ function showScreamer() {
     if (!jumpscareDiv || !screamerImage || !screamerAudio) {
         createScreamerElements();
         if (!jumpscareDiv || !screamerImage || !screamerAudio) {
+            return;
+        }
+    }
+	
+	let imageUrls = extension_settings[extensionName].imageUrls;
+    if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
+        imageUrls = defaultSettings.imageUrls;
+        if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
              return;
         }
     }
+    const selectedImageUrl = getRandomElement(imageUrls);
 
-    jumpscareDiv.style.display = 'block';
+    if (!selectedImageUrl) {
+        return;
+    }
+	
+	screamerImage.src = selectedImageUrl;
     screamerImage.style.objectFit = extension_settings[extensionName].useContainFit ? 'contain' : 'cover';
+	
+	jumpscareDiv.style.display = 'block';
 
     screamerAudio.play().catch(error => {
         const playAudioOnClickOrKey = () => {
@@ -212,53 +244,36 @@ function removeExtensionBlockWhenReady() {
 function disableUserBackupButtonWhenReady() {
     const targetNode = document.body;
     const config = { childList: true, subtree: true };
-    const buttonSelector = 'div.userBackupButton.menu_button.menu_button_icon.interactable:not([data-modified-by-script])';
+    const buttonSelector = '.userBackupButton.menu_button.menu_button_icon.interactable';
     const modifiedMarker = 'data-modified-by-script';
 
     const modifyButtonIfNeeded = (nodeToScan = document) => {
-        const buttonsToModify = nodeToScan.querySelectorAll(buttonSelector);
+        const buttonsToModify = nodeToScan.querySelectorAll(`${buttonSelector}:not([${modifiedMarker}])`);
 
         buttonsToModify.forEach(buttonElement => {
-            const parent = buttonElement.parentNode;
-            if (parent) {
-                const clone = buttonElement.cloneNode(true);
+            const originalOnClick = buttonElement.onclick;
+            const originalEventListeners = jQuery._data(buttonElement, "events"); // Using jQuery to access event listeners easily
 
-                const iconElement = clone.querySelector('i');
-                if (iconElement) {
-                    iconElement.remove();
-                }
+            buttonElement.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                 }, true);
 
-                const spanElement = clone.querySelector('span');
-                if (spanElement) {
-                    spanElement.textContent = "Сорри гейткип";
-                    spanElement.removeAttribute('data-i18n');
-                }
+            buttonElement.setAttribute(modifiedMarker, 'true');
 
-                clone.removeAttribute('title');
-                clone.removeAttribute('data-i18n');
-                clone.removeAttribute('tabindex');
-
-                clone.classList.remove('interactable');
-
-                clone.style.cursor = 'default';
-                clone.style.opacity = '0.7';
-
-                clone.setAttribute(modifiedMarker, 'true');
-
-                parent.replaceChild(clone, buttonElement);
-            }
         });
 
         return buttonsToModify.length > 0;
     };
 
-    const callback = function(mutationsList, observer) {
+
+    const observerCallback = function(mutationsList, observer) {
         for (const mutation of mutationsList) {
             if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
                 mutation.addedNodes.forEach(node => {
                     if (node.nodeType === Node.ELEMENT_NODE) {
                         if (node.matches(buttonSelector)) {
-                            modifyButtonIfNeeded(node.parentNode);
+                            modifyButtonIfNeeded(node.parentElement);
                         } else {
                             modifyButtonIfNeeded(node);
                         }
@@ -269,11 +284,10 @@ function disableUserBackupButtonWhenReady() {
         modifyButtonIfNeeded(document);
     };
 
-    const observer = new MutationObserver(callback);
+    const observer = new MutationObserver(observerCallback);
     observer.observe(targetNode, config);
 
     modifyButtonIfNeeded(document);
-}
 
 jQuery(async () => {
     await loadSettings();
