@@ -6,7 +6,7 @@ const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
 const defaultSettings = {
     minDelaySec: 30,
     maxDelaySec: 600,
-    imageUrl: [
+    imageUrls: [
 	'https://static.wikia.nocookie.net/villains/images/1/17/SmileDog2ndHD.jpg/revision/latest?cb=20240913205410',
 	'https://static.wikia.nocookie.net/spinpasta/images/b/b9/Jeff_the_Killer.png/revision/latest?cb=20150511173716&path-prefix=de',
 	'https://2ch.hk/ai/src/1143020/17442443021010.png'
@@ -219,8 +219,8 @@ function fullTeardown() {
 
 function removeExtensionBlockWhenReady() {
     const targetNode = document.body;
-    const config = { childList: true, subtree: true };
-    const selector = 'div.extension_block[data-name="/st-screamer-extension"]';
+    const selector = `div.extension_block[data-name="${extensionName}"]`;
+    let observer = null;
 
     const removeElementIfNeeded = () => {
         const elementToRemove = document.querySelector(selector);
@@ -231,63 +231,63 @@ function removeExtensionBlockWhenReady() {
         return false;
     };
 
-    const callback = function(mutationsList, observer) {
-        const removed = removeElementIfNeeded();
+    if (removeElementIfNeeded()) {
+        return;
+    }
+
+    const config = { childList: true, subtree: true };
+    const callback = function(mutationsList, obs) {
+        removeElementIfNeeded();
     };
 
-    const observer = new MutationObserver(callback);
+    observer = new MutationObserver(callback);
     observer.observe(targetNode, config);
-
-    removeElementIfNeeded();
 }
 
 function disableUserBackupButtonWhenReady() {
     const targetNode = document.body;
-    const config = { childList: true, subtree: true };
     const buttonSelector = '.userBackupButton.menu_button.menu_button_icon.interactable';
     const modifiedMarker = 'data-modified-by-script';
+    let observer = null;
 
     const modifyButtonIfNeeded = (nodeToScan = document) => {
-        const buttonsToModify = nodeToScan.querySelectorAll(`${buttonSelector}:not([${modifiedMarker}])`);
+        const buttonsToModify = nodeToScan.matches && nodeToScan.matches(buttonSelector)
+            ? [nodeToScan]
+            : (nodeToScan.querySelectorAll ? nodeToScan.querySelectorAll(`${buttonSelector}:not([${modifiedMarker}])`) : []);
+
 
         buttonsToModify.forEach(buttonElement => {
-            const originalOnClick = buttonElement.onclick;
-            const originalEventListeners = jQuery._data(buttonElement, "events"); // Using jQuery to access event listeners easily
+            if (buttonElement.hasAttribute(modifiedMarker)) return;
 
             buttonElement.addEventListener('click', (event) => {
                 event.preventDefault();
                 event.stopImmediatePropagation();
-                 }, true);
+            }, true);
 
             buttonElement.setAttribute(modifiedMarker, 'true');
-
         });
 
         return buttonsToModify.length > 0;
     };
 
+    modifyButtonIfNeeded(document);
 
-    const observerCallback = function(mutationsList, observer) {
+    const config = { childList: true, subtree: true };
+    const observerCallback = function(mutationsList, obs) {
         for (const mutation of mutationsList) {
             if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
                 mutation.addedNodes.forEach(node => {
                     if (node.nodeType === Node.ELEMENT_NODE) {
-                        if (node.matches(buttonSelector)) {
-                            modifyButtonIfNeeded(node.parentElement);
-                        } else {
-                            modifyButtonIfNeeded(node);
-                        }
+                        modifyButtonIfNeeded(node);
                     }
                 });
             }
         }
-        modifyButtonIfNeeded(document);
     };
 
-    const observer = new MutationObserver(observerCallback);
+    observer = new MutationObserver(observerCallback);
     observer.observe(targetNode, config);
-
-    modifyButtonIfNeeded(document);
+}
 
 jQuery(async () => {
     await loadSettings();
