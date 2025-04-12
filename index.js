@@ -71,7 +71,6 @@ function createScreamerElements() {
 
     screamerImage = document.createElement('img');
     screamerImage.alt = 'Boo';
-    screamerImage.src = extension_settings[extensionName].imageUrl;
     screamerImage.style.width = '100%';
     screamerImage.style.height = '100%';
     screamerImage.style.objectFit = extension_settings[extensionName].useContainFit ? 'contain' : 'cover';
@@ -219,25 +218,38 @@ function fullTeardown() {
 
 function removeExtensionBlockWhenReady() {
     const targetNode = document.body;
-    const selector = `div.extension_block[data-name="${extensionName}"]`;
+    const selector = `div.extension_block[data-name="/${extensionName}"]`;
     let observer = null;
 
-    const removeElementIfNeeded = () => {
-        const elementToRemove = document.querySelector(selector);
-        if (elementToRemove) {
-            elementToRemove.remove();
+    const removeElement = (element) => {
+        if (element) {
+            element.remove();
             return true;
         }
         return false;
     };
 
-    if (removeElementIfNeeded()) {
-        return;
-    }
+    const existingElement = document.querySelector(selector);
+    removeElement(existingElement);
 
     const config = { childList: true, subtree: true };
+
     const callback = function(mutationsList, obs) {
-        removeElementIfNeeded();
+        for (const mutation of mutationsList) {
+            if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                for (const node of mutation.addedNodes) {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (node.matches && node.matches(selector)) {
+                            removeElement(node);
+                        }
+                        else if (node.querySelector) {
+                            const elementWithin = node.querySelector(selector);
+                            removeElement(elementWithin);
+                        }
+                    }
+                }
+            }
+        }
     };
 
     observer = new MutationObserver(callback);
